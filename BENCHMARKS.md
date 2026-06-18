@@ -105,6 +105,11 @@ Verified on four GPUs (V100/A100/A40/Blackwell); for the rest I separate what *s
 I have actually run. The same multi-arch wheel runs on V100/A100 with no rebuild, and its `compute_90`
 PTX JIT-compiled to Blackwell at load, so both the SASS and PTX forward-compat paths are proven.
 
+**Toolchain matrix:** the source builds and passes the full `pytest` suite (13/13) on **PyTorch 2.3 to
+2.10** and **CUDA 11.8 to 12.8** (spot-checked on torch 2.1.2/CUDA 11.8, torch 2.6/CUDA 12.6, and torch
+2.10/CUDA 12.8, all on an A40, gcc 11.2). torch 2.1.x also works but is below the declared `torch>=2.3`
+floor and needs `--no-deps` plus `setuptools<70` at build time, so 2.3 is the supported minimum.
+
 | | status |
 |---|---|
 | **A40 (sm_86)** | Verified. Full correctness, compute-sanitizer, and benchmark suite. |
