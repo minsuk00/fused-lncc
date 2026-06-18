@@ -1,0 +1,6 @@
+torch>=2.3.0
+numpy
+# optional (benchmarks / examples only):
+#   monai            # MONAI LNCC baseline + registration demo
+#   matplotlib       # plots
+#   fireants_fused_ops  # FireANTs baseline (pip install fireants_fused_ops)
