@@ -21,6 +21,13 @@ separable box-sum plus `torch.compile` reference; **MONAI**
 About **3.4-4.0x faster / 3.0x less memory** vs FireANTs, **3.3x / 3.8x** vs separable+compile,
 **6.6-10.5x** vs MONAI, **~18x** vs naive (`time / peak-VRAM`).
 
+All contenders run the regime fused_lncc supports: rectangular box, gradient to `pred` only, exact
+backward. FireANTs is run in the matching mode: only `pred` requires grad (its lean 3C-channel
+backward path) and with its exact gradient, not the `use_ants_gradient` approximation, so this is
+apples-to-apples *within that scope*. See [the scope comparison](README.md#scope-vs-ffdpfireants) for
+what FFDP does that fused_lncc does not (Gaussian, large kernels, dual-image gradients, gigavoxel
+sharding).
+
 ![benchmark](assets/benchmark.png)
 
 Speed and peak memory for the forward + backward step across volume sizes:

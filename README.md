@@ -66,8 +66,33 @@ Headline at `(2,16,128³)`, A40, fp32, k=7 (`time / peak-VRAM`, lower is better)
 high resolution the memory advantage becomes an OOM boundary: at 256³, fused_lncc runs in ~13 GB while
 the baselines need 30-61 GB and run out of memory on a 24 GB card.
 
+**What the benchmark measures.** All contenders run the regime fused_lncc supports: rectangular box,
+gradient to `pred` only, and the **exact** backward. FFDP is run in the matching mode: only `pred`
+requires grad, so it takes its lean 3C-channel backward path, and with its exact gradient (not the
+cheaper `use_ants_gradient` approximation). It is apples-to-apples *within that scope*: not a claim
+over everything FFDP can do (Gaussian, large kernels, dual-image gradients, gigavoxel sharding).
+
 Full benchmarks, the four-GPU comparison, the memory/OOM envelope, and end-to-end registration are in
 **[BENCHMARKS.md](BENCHMARKS.md)**.
+
+## Scope vs FFDP/FireANTs
+
+fused_lncc is a **standalone loss** that covers the common case and is fastest there; FFDP is the more
+general kernel, shipped as part of the FireANTs registration framework.
+
+| | **fused_lncc** | FFDP / FireANTs |
+|---|---|---|
+| Window | rectangular box | box **+ Gaussian** |
+| Kernel size | odd `k ∈ {3,5,7,9}` | arbitrary odd `k` |
+| Gradient | `pred` only (asymmetric) | `pred` **and** `target` |
+| Multi-GPU | data-parallel (DDP, different volumes per GPU) | data-parallel **+ grid-parallel** (one gigavoxel volume sharded across GPUs) |
+| Form factor | a single `torch.autograd.Function` | full registration framework (warper, optimizer, pyramid) |
+
+When the defaults match your problem (rectangular window, small kernel, registering a moving image to
+a fixed reference, on a single GPU), fused_lncc is the faster, lighter choice. Reach for FFDP/FireANTs
+if you need a Gaussian window, a large kernel, gradients to *both* images (symmetric/SyN registration,
+or atlas/template building where the template is also optimized), or multi-GPU sharding of a single
+volume too large for one card.
 
 ## Why it's fast
 
