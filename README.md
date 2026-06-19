@@ -56,11 +56,12 @@ alternatives:
 
 ![scaling](assets/scaling.png)
 
-Headline at `(2,16,128³)`, A40, fp32, k=7 (`time / peak-VRAM`, lower is better):
+Headline at `(2,16,128³)`, A40, fp32, k=7, **forward + backward** (`time / peak-VRAM`, lower is better):
 
-| shape (N,C,D,H,W) | **fused_lncc** | FFDP (ICLR'26) | MONAI | naive (PyTorch) |
-|---|---|---|---|---|
-| (2,16,128³) | **24.5 ms / 1.07 GB** | 85.7 / 3.22 | 162.5 / 7.21 | 432.5 / 3.49 |
+| | **fused_lncc** | FFDP (ICLR'26) | MONAI | sep + compile | naive (PyTorch) |
+|---|---|---|---|---|---|
+| time / peak-VRAM (ms / GB) | **24.5 / 1.07** | 85.7 / 3.22 | 162.5 / 7.21 | 81.1 / 4.03 | 432.5 / 3.49 |
+| **vs fused_lncc** (slower / VRAM) | 1x / 1x | 3.5x / 3.0x | 6.6x / 6.7x | 3.3x / 3.8x | 18x / 3.3x |
 
 **3.5x faster and 3x less memory than the SOTA**, and the gap holds across V100/A100/A40/Blackwell. At
 high resolution the memory advantage becomes an OOM boundary: at 256³, fused_lncc runs in ~13 GB while
