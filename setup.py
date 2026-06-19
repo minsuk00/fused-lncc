@@ -1,10 +1,26 @@
-import os
+import os, re, subprocess
 from setuptools import setup
-from torch.utils.cpp_extension import CUDAExtension, BuildExtension
+from torch.utils.cpp_extension import CUDAExtension, BuildExtension, CUDA_HOME
 
-# Multi-arch + PTX so the wheel runs on Turing..Hopper and JIT-forward-compiles on newer GPUs.
-# Override with TORCH_CUDA_ARCH_LIST to build for just your card (smaller/faster build).
-os.environ.setdefault("TORCH_CUDA_ARCH_LIST", "7.0;7.5;8.0;8.6;8.9;9.0;12.0+PTX")
+
+def _nvcc_major():
+    """Major version of the nvcc that will compile the extension (None if undetectable)."""
+    nvcc = os.path.join(CUDA_HOME, "bin", "nvcc") if CUDA_HOME else "nvcc"
+    try:
+        m = re.search(r"release (\d+)\.", subprocess.check_output([nvcc, "--version"], text=True))
+        return int(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
+# Multi-arch + PTX so the wheel runs on Volta..Blackwell and JIT-forward-compiles on newer GPUs.
+# CUDA 13 dropped sm_70 (Volta), so only include 7.0 when building with CUDA < 13 (otherwise nvcc
+# fails with "Unsupported gpu architecture 'compute_70'"). Volta GPUs require a CUDA <= 12.x toolkit.
+# Override TORCH_CUDA_ARCH_LIST to build for just your card (smaller/faster build).
+_archs = "7.5;8.0;8.6;8.9;9.0;12.0+PTX"
+if (_nvcc_major() or 12) < 13:
+    _archs = "7.0;" + _archs
+os.environ.setdefault("TORCH_CUDA_ARCH_LIST", _archs)
 
 setup(
     name="fused_lncc",

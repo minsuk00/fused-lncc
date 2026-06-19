@@ -16,8 +16,9 @@ pip install -e . --no-build-isolation     # needs an NVIDIA GPU and a CUDA toolc
 The wheel ships SASS for sm_70..90 plus sm_120 and JIT-compiles from PTX on newer GPUs, so it runs out
 of the box on Volta through Blackwell. (CUDA only; no Apple/Metal or AMD/ROCm backend.)
 
-Tested with **PyTorch 2.3 to 2.10** and **CUDA 11.8 to 12.8** (it is a source build, so it compiles
-against your own torch + CUDA).
+Tested with **PyTorch 2.3 to 2.12** and **CUDA 11.8 to 13.x** (it is a source build, so it compiles
+against your own torch + CUDA). One caveat: CUDA 13 dropped Volta, so a V100 needs a CUDA 12.x or
+older toolkit (the build selects arches automatically).
 
 ## Usage
 
