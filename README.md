@@ -29,8 +29,24 @@ loss = fused_lncc_loss(pred, target, kernel_size=7)   # pred, target: (N,C,D,H,W
 loss.backward()                                        # gradient flows through `pred`
 ```
 
+It is a standard `torch.autograd.Function`, so it drops into any training loop and composes with other
+loss terms:
+
+```python
+for x, target in loader:
+    opt.zero_grad()
+    pred = model(x)
+    loss = F.l1_loss(pred, target) + 0.5 * fused_lncc_loss(pred, target, kernel_size=7)
+    loss.backward()
+    opt.step()
+```
+
 `fp32` or `bf16`, odd `kernel_size` in {3,5,7,9}. Returns `1 - mean(local correlation)` (lower is
 better). Values match MONAI's rectangular LNCC and a PyTorch reference to ~1e-7.
+
+Notes: the gradient flows through `pred` only (`target` is treated as a fixed reference). Inputs must
+be `fp32` or `bf16`, not `fp16`, so under `torch.autocast(dtype=float16)` cast first, e.g.
+`fused_lncc_loss(pred.float(), target.float(), 7)` (bf16 autocast works directly).
 
 ## Performance
 
