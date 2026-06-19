@@ -14,6 +14,9 @@ producing identical gradients. Verified on V100, A100, A40, and Blackwell.
 pip install -e . --no-build-isolation     # needs an NVIDIA GPU and a CUDA toolchain (nvcc, gcc)
 ```
 
+This is a source build that compiles the kernel for every supported arch, so **expect it to take a few
+minutes**.
+
 The wheel ships SASS for sm_70..90 plus sm_120 and JIT-compiles from PTX on newer GPUs, so it runs out
 of the box on Volta through Blackwell. (CUDA only; no Apple/Metal or AMD/ROCm backend.)
 
