@@ -5,13 +5,14 @@ matrix, and the semantics/correctness contract for [fused_lncc](README.md). All 
 timed, **median over 40 iterations on paired (identical) inputs** across every contender, with warmup
 (covers `torch.compile` and GPU clock ramp); run-to-run CV < 1%. Reproduce with `python bench.py`.
 
-Baselines: **FireANTs** = `fireants_fused_ops` (ICLR'26 SOTA; cuDNN convs plus fused
-elementwise/backward); **sep+compile** = a separable box-sum plus `torch.compile` reference; **MONAI**
+Baselines: **FireANTs** = `fireants_fused_ops` (the FFDP fused kernels, ICLR'26 Oral, built on the
+FireANTs registration library; cuDNN convs plus fused elementwise/backward); **sep+compile** = a
+separable box-sum plus `torch.compile` reference; **MONAI**
 = `LocalNormalizedCrossCorrelationLoss`; **naive** = five dense `conv3d`s plus autograd.
 
 ## Benchmark (A40, fp32, k=7, forward + backward)
 
-| shape (N,C,D,H,W) | **fused_lncc** | FireANTs (ICLR'26) | sep + `torch.compile` | MONAI | naive (PyTorch) |
+| shape (N,C,D,H,W) | **fused_lncc** | FireANTs (FFDP) | sep + `torch.compile` | MONAI | naive (PyTorch) |
 |---|---|---|---|---|---|
 | (1,256,16³) | **0.39 ms / 0.02 GB** | 1.56 / 0.04 | 1.38 / 0.06 | 4.14 / 0.15 | 6.66 / 0.06 |
 | (2,64,64³)  | **12.2 ms / 0.54 GB** | 41.7 / 1.61 | 40.6 / 2.01 | 86.1 / 3.74 | 215.4 / 1.75 |

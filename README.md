@@ -4,7 +4,8 @@ A **fully-fused CUDA** kernel for the 3D **Local (squared) Normalized Cross-Corr
 similarity metric used in deformable image registration and as a perceptual/structural loss.
 
 It is **~3.5x faster and ~3x lighter on memory** than the previous fastest differentiable 3D LNCC
-(FireANTs / FFDP, ICLR'26), ~6-10x faster than MONAI, and ~16-18x faster than naive PyTorch, while
+(FFDP, ICLR'26 Oral — the fused-kernel framework built on the FireANTs registration library),
+~6-10x faster than MONAI, and ~16-18x faster than naive PyTorch, while
 producing identical gradients. Verified on V100, A100, A40, and Blackwell.
 
 ## Install
@@ -57,7 +58,7 @@ alternatives:
 
 Headline at `(2,16,128³)`, A40, fp32, k=7 (`time / peak-VRAM`, lower is better):
 
-| shape (N,C,D,H,W) | **fused_lncc** | FireANTs (ICLR'26) | MONAI | naive (PyTorch) |
+| shape (N,C,D,H,W) | **fused_lncc** | FFDP (ICLR'26) | MONAI | naive (PyTorch) |
 |---|---|---|---|---|
 | (2,16,128³) | **24.5 ms / 1.07 GB** | 85.7 / 3.22 | 162.5 / 7.21 | 432.5 / 3.49 |
 
@@ -95,8 +96,10 @@ are in **[BENCHMARKS.md](BENCHMARKS.md#gpu-support)**.
   inspired by it. SSIM and LNCC are the same shape of computation (local statistics via a separable
   windowed convolution plus a per-window formula), and the shared-memory-tiling and fused-backward
   design here mirrors fused-ssim's, applied to the box-window LNCC.
-- **[FireANTs / FFDP](https://github.com/rohitrango/fireants)** (Rohit Jena): the prior fused 3D LNCC
-  kernel and the analytic-backward idea; used here as the primary speed/memory baseline.
+- **[FFDP](https://arxiv.org/abs/2511.09173)** (Jena et al., ICLR'26 Oral): the prior fused 3D LNCC
+  kernel and the analytic-backward idea; used here as the primary speed/memory baseline. FFDP is the
+  fused-kernel framework built on the [FireANTs](https://github.com/rohitrango/fireants) registration
+  library (Jena et al., *Nature Communications*).
 - **[MONAI](https://github.com/Project-MONAI/MONAI)** `LocalNormalizedCrossCorrelationLoss`: the
   reference semantics we value-match against.
 
