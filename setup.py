@@ -22,11 +22,19 @@ if (_nvcc_major() or 12) < 13:
     _archs = "7.0;" + _archs
 os.environ.setdefault("TORCH_CUDA_ARCH_LIST", _archs)
 
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md"), encoding="utf-8") as _f:
+    _long_description = _f.read()
+
 setup(
     name="fused_lncc",
     version="0.1.0",
     description="Fully-fused 3D Local Normalized Cross-Correlation loss (CUDA)",
-    author="MRI2CT",
+    long_description=_long_description,
+    long_description_content_type="text/markdown",
+    author="Minsuk Choi",
+    license="MIT",
+    url="https://github.com/minsuk00/fused-lncc",
+    python_requires=">=3.8",
     packages=["fused_lncc"],
     package_data={"fused_lncc": ["csrc/*.cu"]},   # ship the source for the JIT fallback + sdist
     include_package_data=True,
