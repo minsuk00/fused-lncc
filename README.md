@@ -67,6 +67,12 @@ Notes: the gradient flows through `pred` only (`target` is treated as a fixed re
 be `fp32` or `bf16`, not `fp16`, so under `torch.autocast(dtype=float16)` cast first, e.g.
 `fused_lncc_loss(pred.float(), target.float(), 7)` (bf16 autocast works directly).
 
+## Use in FireANTs
+
+fused_lncc can also serve as an optional LNCC backend in [FireANTs](https://github.com/rohitrango/fireants)
+registration: install it, then pass `loss_type='fused_lncc'` (rectangular kernel, pred-only gradient,
+single GPU; falls back to the built-in `cc` loss if not installed).
+
 ## Performance
 
 Speed and peak memory for the forward + backward step as the volume grows, against the common
