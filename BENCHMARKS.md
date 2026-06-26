@@ -104,8 +104,18 @@ iters, `LNCC + diffusion` regularizer, [`examples/registration_demo.py`](example
 | MONAI | 9.3 | 0.21 GB | 0.996 | 6.3e-4 |
 
 **Identical registration quality** (both drive similarity 0.44 to 0.996), but **3.0x faster per
-iteration** (0.46 s vs 1.39 s total). The kernel speedup carries through, diluted only by the shared
-`grid_sample` / Adam / regularizer cost. (Per-GPU registration speedups are in the four-GPU table above.)
+iteration** (0.46 s vs 1.39 s total). Against MONAI the kernel speedup mostly carries through, because
+the loss dominates each iteration; against an already-fused baseline like FFDP it does not (see below).
+(Per-GPU registration speedups are in the four-GPU table above.)
+
+**vs FFDP, end-to-end.** With FFDP's fused loss already in FireANTs, swapping in fused_lncc gives
+**~1.1-1.15x** per iteration (vs FFDP's default ANTs-approximate gradient, and slightly more accurate,
+since fused_lncc uses the exact gradient) or **~1.3-1.4x** with a matched exact gradient, at equal VRAM
+and equal registration quality (128³-256³, A40, full FireANTs `GreedyRegistration`). The loss-only
+~3.4x does **not** carry through here: once the loss is fused it is only ~38% of an iteration (the rest
+is `grid_sample` + displacement-field smoothing + Adam), so even an infinitely fast loss could speed the
+whole step up by at most ~1.6x. The large end-to-end win above is against the **non-fused** MONAI LNCC,
+where the loss dominates the step.
 
 ## GPU support
 

@@ -4,9 +4,10 @@ A **fully-fused CUDA** kernel for the 3D **Local (squared) Normalized Cross-Corr
 similarity metric used in deformable image registration and as a perceptual/structural loss.
 
 It is **~3.5x faster and ~3x lighter on memory** than the previous fastest differentiable 3D LNCC
-(FFDP, ICLR'26 Oral — the fused-kernel framework built on the FireANTs registration library),
+(FFDP, ICLR'26 Oral, the fused-kernel framework built on the FireANTs registration library),
 ~6-10x faster than MONAI, and ~16-18x faster than naive PyTorch, while
-producing identical gradients. Verified on V100, A100, A40, and Blackwell.
+producing matching gradients. These are loss-kernel numbers; the end-to-end registration
+speedup is smaller (see below). Verified on V100, A100, A40, and Blackwell.
 
 ## Install
 
@@ -17,8 +18,10 @@ pip install -e . --no-build-isolation     # needs an NVIDIA GPU and a CUDA toolc
 This is a source build that compiles the kernel for every supported arch, so **expect it to take a few
 minutes**.
 
-The wheel ships SASS for sm_70..90 plus sm_120 and JIT-compiles from PTX on newer GPUs, so it runs out
-of the box on Volta through Blackwell. (CUDA only; no Apple/Metal or AMD/ROCm backend.)
+The wheel ships SASS for sm_70..90 plus sm_120 and JIT-compiles from PTX on newer GPUs, so it should
+run out of the box from Volta through Blackwell (V100/A100/A40/Blackwell are verified; see
+[GPU support](#gpu-support)). Turing (sm_75) runs but its 64 KB shared memory limits it to k≤5.
+(CUDA only; no Apple/Metal or AMD/ROCm backend.)
 
 Tested with **PyTorch 2.3 to 2.12** and **CUDA 11.8 to 13.x** (it is a source build, so it compiles
 against your own torch + CUDA). One caveat: CUDA 13 dropped Volta, so a V100 needs a CUDA 12.x or
@@ -46,7 +49,8 @@ for x, target in loader:
 ```
 
 `fp32` or `bf16`, odd `kernel_size` in {3,5,7,9}. Returns `1 - mean(local correlation)` (lower is
-better). Values match MONAI's rectangular LNCC and a PyTorch reference to ~1e-7.
+better). Forward values match MONAI's rectangular LNCC and a PyTorch reference to ~1e-7, and the
+analytic gradient matches to cosine >0.9999 (relative error <1e-3).
 
 Notes: the gradient flows through `pred` only (`target` is treated as a fixed reference). Inputs must
 be `fp32` or `bf16`, not `fp16`, so under `torch.autocast(dtype=float16)` cast first, e.g.
@@ -75,6 +79,14 @@ gradient to `pred` only, and the **exact** backward. FFDP is run in the matching
 requires grad, so it takes its lean 3C-channel backward path, and with its exact gradient (not the
 cheaper `use_ants_gradient` approximation). It is apples-to-apples *within that scope*: not a claim
 over everything FFDP can do (Gaussian, large kernels, dual-image gradients, gigavoxel sharding).
+
+**End-to-end note.** The numbers above are for the loss kernel in isolation. In a full registration
+pipeline the speedup depends on how much of each step the loss actually is: against the non-fused MONAI
+LNCC it stays large (~3x per iteration, since the loss dominates the step), but against FFDP (which
+already fuses the loss) it is modest (**~1.1-1.15x**, or ~1.3-1.4x with a matched exact gradient), at
+equal memory and equal registration quality, because the fused loss is only ~38% of an iteration. So
+fused_lncc helps most where the loss isn't already fused (most LNCC pipelines); against FFDP the gain is
+small but it stays more accurate (exact gradient) and simpler to deploy (standalone, no per-arch build).
 
 Full benchmarks, the four-GPU comparison, the memory/OOM envelope, and end-to-end registration are in
 **[BENCHMARKS.md](BENCHMARKS.md)**.
