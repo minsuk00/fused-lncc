@@ -11,11 +11,22 @@ speedup is smaller (see below). Verified on V100, A100, A40, and Blackwell.
 
 ## Install
 
+Requires an NVIDIA GPU, a CUDA toolchain (`nvcc`, `gcc`), and **PyTorch already installed with a CUDA
+build matching your `nvcc`**. From PyPI:
+
 ```bash
-pip install -e . --no-build-isolation     # needs an NVIDIA GPU and a CUDA toolchain (nvcc, gcc)
+pip install fused_lncc --no-build-isolation
 ```
 
-This is a source build that compiles the kernel for every supported arch, so **expect it to take a few
+Or from source:
+
+```bash
+pip install -e . --no-build-isolation
+```
+
+`--no-build-isolation` is required: it builds the CUDA extension against your existing PyTorch. Without
+it, pip's isolated build pulls its own (often newer-CUDA) PyTorch that mismatches your `nvcc` and the
+build fails. Either way it compiles the kernel for every supported arch, so **expect it to take a few
 minutes**.
 
 The wheel ships SASS for sm_70..90 plus sm_120 and JIT-compiles from PTX on newer GPUs, so it should
