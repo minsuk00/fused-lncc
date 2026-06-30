@@ -70,7 +70,7 @@ be `fp32` or `bf16`, not `fp16`, so under `torch.autocast(dtype=float16)` cast f
 ## Use in FireANTs
 
 fused_lncc can also serve as an optional LNCC backend in [FireANTs](https://github.com/rohitrango/fireants)
-registration: install it, then pass `loss_type='fused_lncc'` (rectangular kernel, pred-only gradient,
+registration: install it, then pass `loss_type='lite_lncc'` (rectangular kernel, pred-only gradient,
 single GPU; falls back to the built-in `cc` loss if not installed).
 
 ## Performance
