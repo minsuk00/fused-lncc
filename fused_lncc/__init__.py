@@ -19,6 +19,33 @@ except ImportError:                   # fall back to JIT compile from source
     )
 
 
+# Wrap the two opaque CUDA-kernel calls as torch custom ops so the loss is traceable by
+# torch.compile / TorchDynamo. Without this, `_ext.*` is a "function marked as skipped" and
+# forces a graph break on every call. The wrappers are numerically identical to calling
+# `_ext` directly (verified bit-exact on both loss and gradient).
+@torch.library.custom_op("fused_lncc::forward", mutates_args=())
+def _lncc_forward_op(pf: torch.Tensor, tf: torch.Tensor, kernel_size: int, smooth_dr: float) -> list[torch.Tensor]:
+    return [t.contiguous() for t in _ext.lncc_forward(pf, tf, kernel_size, smooth_dr)]
+
+
+@_lncc_forward_op.register_fake
+def _(pf, tf, kernel_size, smooth_dr):
+    # ncc, A, B, C are ALWAYS fp32 (kernel forces fp32 outputs even for bf16 input) — the fake
+    # MUST match, else torch.compile propagates the input dtype downstream and the bf16 path NaNs.
+    return [torch.empty_like(pf, dtype=torch.float32) for _ in range(4)]  # all (N*C, D, H, W)
+
+
+@torch.library.custom_op("fused_lncc::backward", mutates_args=())
+def _lncc_backward_op(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor, pf: torch.Tensor,
+                      tf: torch.Tensor, kernel_size: int, scale: float) -> torch.Tensor:
+    return _ext.lncc_backward(A, B, C, pf, tf, kernel_size, scale).contiguous()
+
+
+@_lncc_backward_op.register_fake
+def _(A, B, C, pf, tf, kernel_size, scale):
+    return torch.empty_like(pf)
+
+
 class _FusedLNCC(torch.autograd.Function):
     @staticmethod
     def forward(ctx, pred, target, kernel_size, smooth_dr):
@@ -26,7 +53,7 @@ class _FusedLNCC(torch.autograd.Function):
         S = pred.shape[2:]
         pf = pred.reshape(N * C, *S).contiguous()
         tf = target.reshape(N * C, *S).contiguous()
-        ncc, A, Bc, Cc = _ext.lncc_forward(pf, tf, kernel_size, smooth_dr)   # ncc/A/B/C are fp32
+        ncc, A, Bc, Cc = torch.ops.fused_lncc.forward(pf, tf, kernel_size, smooth_dr)  # ncc/A/B/C fp32
         ctx.save_for_backward(pf, tf, A, Bc, Cc)                             # pf,tf keep input dtype
         ctx.k = kernel_size
         ctx.M = ncc.numel()
@@ -37,10 +64,13 @@ class _FusedLNCC(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_out):
         pf, tf, A, Bc, Cc = ctx.saved_tensors
-        # dloss/dp = -grad_out/M * (box(A) + 2p*box(B) + t*box(Cc)) — fully fused in one kernel
-        # (the 3 box-sums + the elementwise combine; identical math to the scatter version).
-        scale = (-grad_out / ctx.M).item()   # grad_out is a scalar (loss is scalar)
-        grad_p = _ext.lncc_backward(A, Bc, Cc, pf, tf, ctx.k, scale)   # returned in input dtype
+        # dloss/dp = -grad_out/M * (box(A) + 2p*box(B) + t*box(Cc)) — fully fused in one kernel.
+        # Call with scale=1 then apply -grad_out/M as a TENSOR multiply (no .item() host-sync)
+        # so the backward stays traceable. The kernel is linear in `scale`, so this equals the old
+        # scale=(-grad_out/M).item() path: bit-exact for fp32 (and for bf16 when M is a power of two,
+        # where the scale is an exact power of two). For bf16 with non-pow2 M the box-sum is rounded
+        # before scaling instead of after, differing at the ULP level (~5e-3 rel; grads still correct).
+        grad_p = torch.ops.fused_lncc.backward(A, Bc, Cc, pf, tf, ctx.k, 1.0) * (-grad_out / ctx.M)
         return grad_p.reshape(*ctx.bc).to(ctx.dtype), None, None, None
 
 
